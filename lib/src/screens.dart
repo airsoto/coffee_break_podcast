@@ -41,22 +41,20 @@ class EpisodesScreen extends StatelessWidget {
 
 class SearchScreen extends StatefulWidget { const SearchScreen({super.key}); @override State<SearchScreen> createState() => _SearchScreenState(); }
 class _SearchScreenState extends State<SearchScreen> {
-  String query = '', part = 'Todas', participant = 'Todos', topic = 'Todos'; int year = 0; bool refs = false;
+  String query = '', participant = 'Todos', topic = 'Todos'; int year = 0;
   @override Widget build(BuildContext context) {
     final all = context.watch<AppState>().episodes;
     final years = all.map((e) => e.year).where((e) => e > 0).toSet().toList()..sort((a,b) => b.compareTo(a));
     final participants = all.expand((e) => e.participants).toSet().toList()..sort();
     final topics = all.expand((e) => e.topics.map((t) => t.title)).toSet().toList()..sort();
     final q = query.trim().toLowerCase();
-    final results = all.where((e) => (q.isEmpty || e.searchable.contains(q)) && (part == 'Todas' || e.part == part) && (year == 0 || e.year == year) && (participant == 'Todos' || e.participants.contains(participant)) && (topic == 'Todos' || e.topics.any((t) => t.title == topic)) && (!refs || e.hasReferences)).toList();
+    final results = all.where((e) => (q.isEmpty || e.searchable.contains(q)) && (year == 0 || e.year == year) && (participant == 'Todos' || e.participants.contains(participant)) && (topic == 'Todos' || e.topics.any((t) => t.title == topic))).toList();
     return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: SearchBar(hintText: 'Título, tema, DOI, participante, texto…', leading: const Icon(Icons.search), onChanged: (v) => setState(() => query = v))),
+      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: SearchBar(hintText: 'Título, tema, participante o texto…', leading: const Icon(Icons.search), onChanged: (v) => setState(() => query = v))),
       SizedBox(height: 52, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
         FilterMenu(label: year == 0 ? 'Año' : '$year', values: ['Todos', ...years.map((e) => '$e')], onSelected: (v) => setState(() => year = int.tryParse(v) ?? 0)),
-        FilterMenu(label: part == 'Todas' ? 'Parte' : part, values: const ['Todas','A','B'], onSelected: (v) => setState(() => part = v)),
         FilterMenu(label: participant == 'Todos' ? 'Participante' : participant, values: ['Todos', ...participants], onSelected: (v) => setState(() => participant = v)),
         FilterMenu(label: topic == 'Todos' ? 'Tema' : topic, values: ['Todos', ...topics], onSelected: (v) => setState(() => topic = v)),
-        FilterChip(label: const Text('Con referencias'), selected: refs, onSelected: (v) => setState(() => refs = v)),
       ])),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: Text('${results.length} resultados')), if (results.isNotEmpty) TextButton.icon(onPressed: () => _createSearchPlaylist(context, context.read<AppState>(), results, q), icon: const Icon(Icons.playlist_add), label: const Text('Crear lista'))])),
       Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: results.length, itemBuilder: (_, i) => EpisodeTile(episode: results[i]))),
@@ -189,6 +187,10 @@ void _showPodcastInfo(BuildContext context, AppState state) {
               Text([info.genre, info.language, info.country].where((v) => v.isNotEmpty).join(' · ')),
               const SizedBox(height: 16),
               Text(info.description),
+              const SectionTitle('Desarrollado por Angel Soto'),
+              const Text('Soy un veterinario clínico de pequeños animales, apasionado por la ciencia en general y la física en particular, que ha querido agradecer a todo el equipo de Señal y Ruido todos estos años de enseñanza con esta aplicación. Con toda mi admiración hacia todos los integrantes del programa.'),
+              const SizedBox(height: 8),
+              const Text('Angel Soto (septiembre de 2026)', style: TextStyle(fontStyle: FontStyle.italic)),
               const SectionTitle('Colaboradores'),
               ...info.collaborators.map((c) => ExpansionTile(title: Text(c.name), subtitle: Text(c.role), children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: Text(c.info))])),
               if (info.website.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(info.website)), icon: const Icon(Icons.open_in_new), label: const Text('Sitio web')),
