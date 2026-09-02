@@ -2,6 +2,8 @@
 
 Aplicación Flutter orientada a iPhone. El catálogo se descarga dinámicamente desde `https://airsoto.github.io/vet/json/coffee_break_APP/coffee_break.json`.
 
+Requiere iOS 15 o posterior.
+
 El botón de información descarga de forma independiente `https://airsoto.github.io/vet/json/coffee_break_APP/coffeebreakinfo.json`, muestra la presentación del pódcast y sus colaboradores, y también conserva una caché local.
 
 No se incluye una copia del catálogo en el paquete. La última respuesta válida se guarda en el directorio de soporte de la aplicación durante 12 horas y se usa como respaldo offline. Favoritos, listas, notas, historial y progreso se almacenan aparte mediante `SharedPreferences` y nunca modifican el JSON remoto.
