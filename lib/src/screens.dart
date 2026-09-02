@@ -29,10 +29,10 @@ class EpisodesScreen extends StatelessWidget {
     if (state.loading && state.episodes.isEmpty) return const Center(child: CircularProgressIndicator());
     if (state.error != null && state.episodes.isEmpty) return EmptyState(text: state.error!, action: () => state.refresh(manual: true));
     return RefreshIndicator(onRefresh: () => state.refresh(manual: true), child: CustomScrollView(slivers: [
-      SliverAppBar.large(actions: [IconButton(tooltip: 'Información del podcast', icon: const Icon(Icons.info_outline), onPressed: () => _showPodcastInfo(context, state))], title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Coffee Break'), Text('${state.episodes.length} episodios${state.fromCache ? ' · sin conexión' : ''}', style: Theme.of(context).textTheme.bodySmall)])),
+      SliverAppBar.large(actions: [IconButton(tooltip: 'Información del podcast', icon: const Icon(Icons.info_outline), onPressed: () => _showPodcastInfo(context, state))], title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Coffee Break'), Text('Señal y Ruido Podcast', style: Theme.of(context).textTheme.titleSmall), Text('${state.episodes.length} episodios${state.fromCache ? ' · sin conexión' : ''}', style: Theme.of(context).textTheme.bodySmall)])),
       SliverPadding(padding: const EdgeInsets.fromLTRB(10, 0, 10, 20), sliver: SliverGrid.builder(
         itemCount: state.episodes.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: .54),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6, childAspectRatio: .68),
         itemBuilder: (_, i) => EpisodeGridCard(episode: state.episodes[i]),
       )),
     ]));
@@ -57,7 +57,7 @@ class _SearchScreenState extends State<SearchScreen> {
         FilterMenu(label: topic == 'Todos' ? 'Tema' : topic, values: ['Todos', ...topics], onSelected: (v) => setState(() => topic = v)),
       ])),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: Text('${results.length} resultados')), if (results.isNotEmpty) TextButton.icon(onPressed: () => _createSearchPlaylist(context, context.read<AppState>(), results, q), icon: const Icon(Icons.playlist_add), label: const Text('Crear lista'))])),
-      Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: results.length, itemBuilder: (_, i) => EpisodeTile(episode: results[i]))),
+      Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: results.length, itemBuilder: (_, i) => SearchEpisodeResult(episode: results[i], query: q))),
     ]);
   }
 }
@@ -77,6 +77,31 @@ class EpisodeTile extends StatelessWidget {
   }
 }
 
+class SearchEpisodeResult extends StatelessWidget {
+  const SearchEpisodeResult({super.key, required this.episode, required this.query});
+  final Episode episode;
+  final String query;
+  @override Widget build(BuildContext context) {
+    final matchingTopics = query.isEmpty ? <Topic>[] : episode.topics.where((topic) => topic.title.toLowerCase().contains(query)).toList();
+    if (matchingTopics.isEmpty) return EpisodeTile(episode: episode);
+    final state = context.watch<AppState>();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      EpisodeTile(episode: episode),
+      Padding(padding: const EdgeInsets.fromLTRB(16, 0, 8, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Partes que coinciden', style: Theme.of(context).textTheme.labelLarge),
+        ...matchingTopics.map((topic) => ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Text(clock(topic.seconds)),
+          title: Text(topic.title),
+          trailing: IconButton(tooltip: 'Añadir esta parte a una lista', icon: const Icon(Icons.playlist_add), onPressed: () => _playlistSheet(context, state, episode, seconds: topic.seconds, label: topic.title)),
+          onTap: () => context.read<AudioController>().play(episode, atSeconds: topic.seconds),
+        )),
+      ])),
+    ]);
+  }
+}
+
 class EpisodeGridCard extends StatelessWidget {
   const EpisodeGridCard({super.key, required this.episode});
   final Episode episode;
@@ -86,12 +111,12 @@ class EpisodeGridCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EpisodeDetail(episode: episode))),
-        child: Padding(padding: const EdgeInsets.all(7), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          AspectRatio(aspectRatio: 1, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: episode.imageUrl.isEmpty ? const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts)) : Image.network(episode.imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts))))),
-          const SizedBox(height: 6),
-          Text(episode.title, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, height: 1.1)),
+        child: Padding(padding: const EdgeInsets.all(6), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          AspectRatio(aspectRatio: 1.18, child: ClipRRect(borderRadius: BorderRadius.circular(7), child: episode.imageUrl.isEmpty ? const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts)) : Image.network(episode.imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts))))),
+          const SizedBox(height: 5),
+          Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700, height: 1.12)),
           const Spacer(),
-          Text([if (episode.published != null) DateFormat('dd/MM/yy').format(episode.published!), clock(episode.durationSeconds)].join('\n'), maxLines: 2, style: Theme.of(context).textTheme.labelSmall),
+          Text([if (episode.published != null) DateFormat('dd/MM/yy').format(episode.published!), clock(episode.durationSeconds)].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             IconButton(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero, tooltip: 'Reproducir', onPressed: () => context.read<AudioController>().play(episode), icon: const Icon(Icons.play_circle_fill)),
             IconButton(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero, tooltip: 'Añadir a lista', onPressed: () => _playlistSheet(context, state, episode), icon: const Icon(Icons.playlist_add)),
@@ -187,13 +212,15 @@ void _showPodcastInfo(BuildContext context, AppState state) {
               Text([info.genre, info.language, info.country].where((v) => v.isNotEmpty).join(' · ')),
               const SizedBox(height: 16),
               Text(info.description),
-              const SectionTitle('Desarrollado por Angel Soto'),
-              const Text('Soy un veterinario clínico de pequeños animales, apasionado por la ciencia en general y la física en particular, que ha querido agradecer a todo el equipo de Señal y Ruido todos estos años de enseñanza con esta aplicación. Con toda mi admiración hacia todos los integrantes del programa.'),
-              const SizedBox(height: 8),
-              const Text('Angel Soto (septiembre de 2026)', style: TextStyle(fontStyle: FontStyle.italic)),
               const SectionTitle('Colaboradores'),
               ...info.collaborators.map((c) => ExpansionTile(title: Text(c.name), subtitle: Text(c.role), children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: Text(c.info))])),
               if (info.website.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(info.website)), icon: const Icon(Icons.open_in_new), label: const Text('Sitio web')),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider()),
+              Text('Desarrollado por Angel Soto', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              const Text('Soy un veterinario clínico de pequeños animales, apasionado por la ciencia en general y la física en particular, que ha querido agradecer a todo el equipo de Señal y Ruido todos estos años de enseñanza con esta aplicación. Con toda mi admiración hacia todos los integrantes del programa.'),
+              const SizedBox(height: 12),
+              const Text('Angel Soto (septiembre de 2026)', style: TextStyle(fontStyle: FontStyle.italic)),
             ],
           );
         },
