@@ -113,5 +113,36 @@ Future<void> _createSearchPlaylist(BuildContext context, AppState state, List<Ep
 }
 
 void _showPodcastInfo(BuildContext context, AppState state) {
-  showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => DraggableScrollableSheet(initialChildSize: .72, minChildSize: .4, maxChildSize: .94, expand: false, builder: (_, controller) => FutureBuilder<PodcastInfo>(future: state.repository.loadInfo(), builder: (context, snapshot) { if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator()); if (snapshot.hasError) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No se pudo cargar la información. Se mostrará cuando el JSON esté publicado o exista caché.'))); final info = snapshot.data!; return ListView(controller: controller, padding: const EdgeInsets.all(20), children: [Text(info.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)), const SizedBox(height: 12), Text([info.genre, info.language, info.country].where((v) => v.isNotEmpty).join(' · ')), const SizedBox(height: 16), Text(info.description), const SectionTitle('Colaboradores'), ...info.collaborators.map((c) => ExpansionTile(title: Text(c.name), subtitle: Text(c.role), children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: Text(c.info))])), if (info.website.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(info.website)), icon: const Icon(Icons.open_in_new), label: const Text('Sitio web'))]); }));
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: .72,
+      minChildSize: .4,
+      maxChildSize: .94,
+      expand: false,
+      builder: (_, controller) => FutureBuilder<PodcastInfo>(
+        future: state.repository.loadInfo(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No se pudo cargar la información. Se mostrará cuando el JSON esté publicado o exista caché.')));
+          final info = snapshot.data!;
+          return ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(info.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Text([info.genre, info.language, info.country].where((v) => v.isNotEmpty).join(' · ')),
+              const SizedBox(height: 16),
+              Text(info.description),
+              const SectionTitle('Colaboradores'),
+              ...info.collaborators.map((c) => ExpansionTile(title: Text(c.name), subtitle: Text(c.role), children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: Text(c.info))])),
+              if (info.website.isNotEmpty) TextButton.icon(onPressed: () => launchUrl(Uri.parse(info.website)), icon: const Icon(Icons.open_in_new), label: const Text('Sitio web')),
+            ],
+          );
+        },
+      ),
+    ),
+  );
 }
