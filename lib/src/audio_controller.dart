@@ -24,5 +24,24 @@ class AudioController extends ChangeNotifier {
   }
   Future<void> toggle() => playing ? player.pause() : player.play();
   Future<void> seek(Duration value) => player.seek(value);
+  Future<void> restart() => seek(Duration.zero);
+  Future<void> skipBy(int seconds) async {
+    final total = duration.inSeconds > 0 ? duration.inSeconds : episode?.durationSeconds ?? 0;
+    await seek(Duration(seconds: (position.inSeconds + seconds).clamp(0, total).toInt()));
+  }
+  Future<void> next() async {
+    if (episode == null) return;
+    final current = episode!;
+    for (final playlist in state.playlists) {
+      final index = playlist.items.lastIndexWhere((item) => item.episodeId == current.id && item.seconds <= position.inSeconds + 2);
+      if (index >= 0 && index + 1 < playlist.items.length) {
+        final item = playlist.items[index + 1];
+        final nextEpisode = state.byId(item.episodeId);
+        if (nextEpisode != null) return play(nextEpisode, atSeconds: item.seconds);
+      }
+    }
+    final index = state.episodes.indexWhere((item) => item.id == current.id);
+    if (index >= 0 && index + 1 < state.episodes.length) await play(state.episodes[index + 1], atSeconds: 0);
+  }
   @override void dispose() { _positionSub.cancel(); _durationSub.cancel(); _playerSub.cancel(); player.dispose(); super.dispose(); }
 }

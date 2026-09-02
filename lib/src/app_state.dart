@@ -41,7 +41,17 @@ class AppState extends ChangeNotifier {
   void createPlaylist(String name) { playlists.add(Playlist(id: DateTime.now().microsecondsSinceEpoch.toString(), name: name, items: [])); _savePlaylists(); }
   void createPlaylistFromSearch(String name, List<PlaylistItem> items) { playlists.add(Playlist(id: DateTime.now().microsecondsSinceEpoch.toString(), name: name, items: items)); _savePlaylists(); }
   void deletePlaylist(String id) { playlists.removeWhere((e) => e.id == id); _savePlaylists(); }
-  void togglePlaylist(String playlistId, String episodeId) { final p = playlists.firstWhere((e) => e.id == playlistId); final index = p.items.indexWhere((e) => e.episodeId == episodeId && e.seconds == 0); index >= 0 ? p.items.removeAt(index) : p.items.add(PlaylistItem(episodeId: episodeId)); _savePlaylists(); }
+  void togglePlaylist(String playlistId, String episodeId, {int seconds = 0, String label = ''}) {
+    final p = playlists.firstWhere((e) => e.id == playlistId);
+    final index = p.items.indexWhere((e) => e.episodeId == episodeId && e.seconds == seconds);
+    index >= 0 ? p.items.removeAt(index) : p.items.add(PlaylistItem(episodeId: episodeId, seconds: seconds, label: label));
+    _savePlaylists();
+  }
+  void removePlaylistItem(String playlistId, PlaylistItem item) {
+    final p = playlists.firstWhere((e) => e.id == playlistId);
+    final index = p.items.indexWhere((e) => e.episodeId == item.episodeId && e.seconds == item.seconds && e.label == item.label);
+    if (index >= 0) { p.items.removeAt(index); _savePlaylists(); }
+  }
   void _savePlaylists() { _prefs.setString('playlists', encodeList(playlists.map((e) => e.toJson()))); notifyListeners(); }
   Episode? byId(String id) { for (final e in episodes) { if (e.id == id) return e; } return null; }
 }
