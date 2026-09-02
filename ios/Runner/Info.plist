@@ -18,6 +18,8 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Por compatibilidad con el sistema de audio, la aplicación puede solicitar acceso al micrófono. La aplicación no graba ni almacena audio del usuario.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 
