@@ -31,8 +31,3 @@ workflows:
     artifacts:
       - build/ios/iphonesimulator/*.app
       - flutter_drive.log
-    publishing:
-      email:
-        notify:
-          success: false
-          failure: false
