@@ -22,21 +22,52 @@ class _RootScreenState extends State<RootScreen> {
   }
 }
 
-class EpisodesScreen extends StatelessWidget {
+class EpisodesScreen extends StatefulWidget {
   const EpisodesScreen({super.key});
+  @override State<EpisodesScreen> createState() => _EpisodesScreenState();
+}
+
+class _EpisodesScreenState extends State<EpisodesScreen> {
+  bool gridView = true;
   @override Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     if (state.loading && state.episodes.isEmpty) return const Center(child: CircularProgressIndicator());
     if (state.error != null && state.episodes.isEmpty) return EmptyState(text: state.error!, action: () => state.refresh(manual: true));
     return RefreshIndicator(onRefresh: () => state.refresh(manual: true), child: CustomScrollView(slivers: [
-      SliverAppBar.large(actions: [IconButton(tooltip: 'Información del podcast', icon: const Icon(Icons.info_outline), onPressed: () => _showPodcastInfo(context, state))], title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Coffee Break'), Text('Señal y Ruido Podcast', style: Theme.of(context).textTheme.titleSmall), Text('${state.episodes.length} episodios${state.fromCache ? ' · sin conexión' : ''}', style: Theme.of(context).textTheme.bodySmall)])),
-      SliverPadding(padding: const EdgeInsets.fromLTRB(10, 0, 10, 20), sliver: SliverGrid.builder(
-        itemCount: state.episodes.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6, childAspectRatio: .68),
-        itemBuilder: (_, i) => EpisodeGridCard(episode: state.episodes[i]),
-      )),
+      SliverAppBar(
+        pinned: true,
+        expandedHeight: 168,
+        title: const Text('Coffee Break'),
+        actions: [
+          IconButton(tooltip: gridView ? 'Ver como lista' : 'Ver en 3 columnas', icon: Icon(gridView ? Icons.view_list : Icons.grid_view), onPressed: () => setState(() => gridView = !gridView)),
+          IconButton(tooltip: 'Información del podcast', icon: const Icon(Icons.info_outline), onPressed: () => _showPodcastInfo(context, state)),
+        ],
+        flexibleSpace: FlexibleSpaceBar(background: Stack(fit: StackFit.expand, children: [
+          Image.asset('assets/images/coffee_break_star_banner.png', fit: BoxFit.cover, alignment: Alignment.centerRight),
+          const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x55000000), Color(0xDD09090D)]))),
+          Positioned(left: 16, right: 16, bottom: 18, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Señal y Ruido Podcast', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text('${state.episodes.length} episodios${state.fromCache ? ' · sin conexión' : ''}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70)),
+          ])),
+        ])),
+      ),
+      if (gridView)
+        SliverPadding(padding: const EdgeInsets.fromLTRB(10, 10, 10, 20), sliver: SliverGrid.builder(
+          itemCount: state.episodes.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6, childAspectRatio: .68),
+          itemBuilder: (_, i) => EpisodeGridCard(episode: state.episodes[i]),
+        ))
+      else
+        SliverPadding(padding: const EdgeInsets.fromLTRB(10, 10, 10, 20), sliver: SliverList.builder(itemCount: state.episodes.length, itemBuilder: (_, i) => EpisodeTile(episode: state.episodes[i]))),
     ]));
   }
+}
+
+class _SearchPartHit {
+  const _SearchPartHit(this.episode, this.topic);
+  final Episode episode;
+  final Topic topic;
 }
 
 class SearchScreen extends StatefulWidget { const SearchScreen({super.key}); @override State<SearchScreen> createState() => _SearchScreenState(); }
@@ -48,7 +79,13 @@ class _SearchScreenState extends State<SearchScreen> {
     final participants = all.expand((e) => e.participants).toSet().toList()..sort();
     final topics = all.expand((e) => e.topics.map((t) => t.title)).toSet().toList()..sort();
     final q = query.trim().toLowerCase();
-    final results = all.where((e) => (q.isEmpty || e.searchable.contains(q)) && (year == 0 || e.year == year) && (participant == 'Todos' || e.participants.contains(participant)) && (topic == 'Todos' || e.topics.any((t) => t.title == topic))).toList();
+    final filteredEpisodes = all.where((e) => (year == 0 || e.year == year) && (participant == 'Todos' || e.participants.contains(participant)));
+    final results = <_SearchPartHit>[
+      if (q.isNotEmpty || topic != 'Todos')
+        for (final episode in filteredEpisodes)
+          for (final item in episode.topics)
+            if ((q.isEmpty || item.title.toLowerCase().contains(q)) && (topic == 'Todos' || item.title == topic)) _SearchPartHit(episode, item),
+    ];
     return Column(children: [
       Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: SearchBar(hintText: 'Título, tema, participante o texto…', leading: const Icon(Icons.search), onChanged: (v) => setState(() => query = v))),
       SizedBox(height: 52, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
@@ -56,8 +93,15 @@ class _SearchScreenState extends State<SearchScreen> {
         FilterMenu(label: participant == 'Todos' ? 'Participante' : participant, values: ['Todos', ...participants], onSelected: (v) => setState(() => participant = v)),
         FilterMenu(label: topic == 'Todos' ? 'Tema' : topic, values: ['Todos', ...topics], onSelected: (v) => setState(() => topic = v)),
       ])),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: Text('${results.length} resultados')), if (results.isNotEmpty) TextButton.icon(onPressed: () => _createSearchPlaylist(context, context.read<AppState>(), results, q), icon: const Icon(Icons.playlist_add), label: const Text('Crear lista'))])),
-      Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: results.length, itemBuilder: (_, i) => SearchEpisodeResult(episode: results[i], query: q))),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: Text('${results.length} partes')), if (results.isNotEmpty) TextButton.icon(onPressed: () => _createSearchPlaylist(context, context.read<AppState>(), results, q), icon: const Icon(Icons.playlist_add), label: const Text('Crear lista'))])),
+      Expanded(child: results.isEmpty
+        ? Center(child: Text(q.isEmpty && topic == 'Todos' ? 'Escribe un término para buscar partes.' : 'No se encontraron partes coincidentes.'))
+        : GridView.builder(
+            padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 5, mainAxisSpacing: 5, childAspectRatio: .58),
+            itemCount: results.length,
+            itemBuilder: (_, i) => _SearchPartCard(hit: results[i]),
+          )),
     ]);
   }
 }
@@ -72,33 +116,36 @@ class EpisodeTile extends StatelessWidget {
     return Card(child: InkWell(borderRadius: BorderRadius.circular(12), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EpisodeDetail(episode: episode))), child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
       ClipRRect(borderRadius: BorderRadius.circular(10), child: episode.imageUrl.isEmpty ? const ColoredBox(color: Color(0xFF2C2925), child: SizedBox(width: 68,height: 68,child: Icon(Icons.graphic_eq))) : Image.network(episode.imageUrl, width: 68,height: 68,fit: BoxFit.cover, errorBuilder: (_,__,___) => const SizedBox(width:68,height:68,child:Icon(Icons.podcasts)))),
       const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 6), Text([if (episode.published != null) DateFormat('dd/MM/yyyy').format(episode.published!), if (episode.part.isNotEmpty) 'Parte ${episode.part}', clock(episode.durationSeconds)].join(' · '), style: Theme.of(context).textTheme.bodySmall), if (p > 0) Padding(padding: const EdgeInsets.only(top: 8), child: LinearProgressIndicator(value: episode.durationSeconds > 0 ? (p / episode.durationSeconds).clamp(0,1).toDouble() : 0))])),
-      IconButton(onPressed: () => context.read<AudioController>().play(episode), icon: const Icon(Icons.play_circle_fill)), IconButton(onPressed: () => state.toggleFavorite(episode.id), icon: Icon(state.favorites.contains(episode.id) ? Icons.favorite : Icons.favorite_border)),
+      IconButton(tooltip: 'Reproducir', onPressed: () => context.read<AudioController>().play(episode), icon: const Icon(Icons.play_circle_fill)),
+      IconButton(tooltip: 'Favorito', onPressed: () => state.toggleFavorite(episode.id), icon: Icon(state.favorites.contains(episode.id) ? Icons.favorite : Icons.favorite_border)),
+      IconButton(tooltip: 'Añadir a lista', onPressed: () => _playlistSheet(context, state, episode), icon: const Icon(Icons.playlist_add)),
     ]))));
   }
 }
 
-class SearchEpisodeResult extends StatelessWidget {
-  const SearchEpisodeResult({super.key, required this.episode, required this.query});
-  final Episode episode;
-  final String query;
+class _SearchPartCard extends StatelessWidget {
+  const _SearchPartCard({required this.hit});
+  final _SearchPartHit hit;
   @override Widget build(BuildContext context) {
-    final matchingTopics = query.isEmpty ? <Topic>[] : episode.topics.where((topic) => topic.title.toLowerCase().contains(query)).toList();
-    if (matchingTopics.isEmpty) return EpisodeTile(episode: episode);
     final state = context.watch<AppState>();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      EpisodeTile(episode: episode),
-      Padding(padding: const EdgeInsets.fromLTRB(16, 0, 8, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Partes que coinciden', style: Theme.of(context).textTheme.labelLarge),
-        ...matchingTopics.map((topic) => ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          leading: Text(clock(topic.seconds)),
-          title: Text(topic.title),
-          trailing: IconButton(tooltip: 'Añadir esta parte a una lista', icon: const Icon(Icons.playlist_add), onPressed: () => _playlistSheet(context, state, episode, seconds: topic.seconds, label: topic.title)),
-          onTap: () => context.read<AudioController>().play(episode, atSeconds: topic.seconds),
-        )),
+    final episode = hit.episode;
+    final topic = hit.topic;
+    const compact = BoxConstraints.tightFor(width: 27, height: 32);
+    return Card(clipBehavior: Clip.antiAlias, child: InkWell(
+      onTap: () => context.read<AudioController>().play(episode, atSeconds: topic.seconds),
+      child: Padding(padding: const EdgeInsets.all(5), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        AspectRatio(aspectRatio: 1.12, child: ClipRRect(borderRadius: BorderRadius.circular(6), child: episode.imageUrl.isEmpty ? const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts)) : Image.network(episode.imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const ColoredBox(color: Color(0xFF2C2925), child: Icon(Icons.podcasts))))),
+        const SizedBox(height: 4),
+        Text(topic.title, maxLines: 3, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.08)),
+        const Spacer(),
+        Text('Ep. ${episode.number}${episode.part} · ${clock(topic.seconds)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          IconButton(constraints: compact, padding: EdgeInsets.zero, iconSize: 19, tooltip: 'Reproducir parte', icon: const Icon(Icons.play_circle_fill), onPressed: () => context.read<AudioController>().play(episode, atSeconds: topic.seconds)),
+          IconButton(constraints: compact, padding: EdgeInsets.zero, iconSize: 18, tooltip: 'Favorito', icon: Icon(state.favorites.contains(episode.id) ? Icons.favorite : Icons.favorite_border), onPressed: () => state.toggleFavorite(episode.id)),
+          IconButton(constraints: compact, padding: EdgeInsets.zero, iconSize: 19, tooltip: 'Añadir parte a lista', icon: const Icon(Icons.playlist_add), onPressed: () => _playlistSheet(context, state, episode, seconds: topic.seconds, label: topic.title)),
+        ]),
       ])),
-    ]);
+    ));
   }
 }
 
@@ -118,8 +165,9 @@ class EpisodeGridCard extends StatelessWidget {
           const Spacer(),
           Text([if (episode.published != null) DateFormat('dd/MM/yy').format(episode.published!), clock(episode.durationSeconds)].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            IconButton(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero, tooltip: 'Reproducir', onPressed: () => context.read<AudioController>().play(episode), icon: const Icon(Icons.play_circle_fill)),
-            IconButton(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero, tooltip: 'Añadir a lista', onPressed: () => _playlistSheet(context, state, episode), icon: const Icon(Icons.playlist_add)),
+            IconButton(constraints: const BoxConstraints.tightFor(width: 30, height: 34), padding: EdgeInsets.zero, iconSize: 20, tooltip: 'Reproducir', onPressed: () => context.read<AudioController>().play(episode), icon: const Icon(Icons.play_circle_fill)),
+            IconButton(constraints: const BoxConstraints.tightFor(width: 30, height: 34), padding: EdgeInsets.zero, iconSize: 19, tooltip: 'Favorito', onPressed: () => state.toggleFavorite(episode.id), icon: Icon(state.favorites.contains(episode.id) ? Icons.favorite : Icons.favorite_border)),
+            IconButton(constraints: const BoxConstraints.tightFor(width: 30, height: 34), padding: EdgeInsets.zero, iconSize: 20, tooltip: 'Añadir a lista', onPressed: () => _playlistSheet(context, state, episode), icon: const Icon(Icons.playlist_add)),
           ]),
         ])),
       ),
@@ -190,9 +238,9 @@ void _playlistSheet(BuildContext context, AppState s, Episode e, {int seconds = 
   ])));
 }
 
-Future<void> _createSearchPlaylist(BuildContext context, AppState state, List<Episode> results, String query) async {
+Future<void> _createSearchPlaylist(BuildContext context, AppState state, List<_SearchPartHit> results, String query) async {
   final title = TextEditingController(text: query.isEmpty ? 'Resultados de búsqueda' : 'Buscar: $query');
-  await showDialog(context: context, builder: (dialog) => AlertDialog(title: const Text('Lista desde resultados'), content: TextField(controller: title, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre de la lista')), actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancelar')), FilledButton(onPressed: () { final items = <PlaylistItem>[]; for (final e in results) { final matching = query.isEmpty ? e.topics : e.topics.where((t) => t.title.toLowerCase().contains(query)).toList(); if (matching.isEmpty) { items.add(PlaylistItem(episodeId: e.id, label: e.title)); } else { for (final t in matching) { items.add(PlaylistItem(episodeId: e.id, seconds: t.seconds, label: t.title)); } } } state.createPlaylistFromSearch(title.text.trim().isEmpty ? 'Resultados de búsqueda' : title.text.trim(), items); Navigator.pop(dialog); }, child: const Text('Crear'))]));
+  await showDialog(context: context, builder: (dialog) => AlertDialog(title: const Text('Lista desde resultados'), content: TextField(controller: title, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre de la lista')), actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancelar')), FilledButton(onPressed: () { final items = results.map((hit) => PlaylistItem(episodeId: hit.episode.id, seconds: hit.topic.seconds, label: hit.topic.title)).toList(); state.createPlaylistFromSearch(title.text.trim().isEmpty ? 'Resultados de búsqueda' : title.text.trim(), items); Navigator.pop(dialog); }, child: const Text('Crear'))]));
 }
 
 void _showPodcastInfo(BuildContext context, AppState state) {
