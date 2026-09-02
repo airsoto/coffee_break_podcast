@@ -52,7 +52,7 @@ workflows:
         script: flutter pub get
       - name: Aplicar firma de Coffee Break
         script: |
-          xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
+          xcode-project use-profiles
       - name: Generar IPA firmado
         script: flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
     artifacts:
