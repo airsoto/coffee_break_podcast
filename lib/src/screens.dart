@@ -164,7 +164,14 @@ class MiniPlayer extends StatelessWidget {
         IconButton(tooltip: 'Volver al inicio', icon: const Icon(Icons.restart_alt), onPressed: a.restart),
         IconButton(tooltip: 'Atrás 5 segundos', icon: const Icon(Icons.replay_5), onPressed: () => a.skipBy(-5)),
         IconButton(tooltip: a.playing ? 'Pausar' : 'Reproducir', icon: Icon(a.playing ? Icons.pause_circle_filled : Icons.play_circle_fill), iconSize: 34, onPressed: a.toggle),
-        IconButton(tooltip: 'Adelante 20 segundos', icon: const Icon(Icons.fast_forward), onPressed: () => a.skipBy(20)),
+        IconButton(
+          tooltip: 'Adelante 20 segundos',
+          icon: Stack(alignment: Alignment.center, children: [
+            Transform.flip(flipX: true, child: const Icon(Icons.replay, size: 28)),
+            const Text('20', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+          ]),
+          onPressed: () => a.skipBy(20),
+        ),
         IconButton(tooltip: 'Siguiente episodio o parte', icon: const Icon(Icons.skip_next), onPressed: a.next),
       ])),
     ])));
