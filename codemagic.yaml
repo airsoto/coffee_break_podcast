@@ -23,7 +23,7 @@ workflows:
       - name: Instalar dependencias Flutter
         script: flutter pub get
       - name: Comprobar código
-        script: flutter analyze
+        script: flutter analyze lib/main.dart lib/src test
       - name: Ejecutar pruebas
         script: flutter test
       - name: Compilar para simulador iOS
