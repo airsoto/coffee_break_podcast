@@ -63,11 +63,38 @@ class LocalNote {
 }
 
 class Playlist {
-  Playlist({required this.id, required this.name, required this.episodeIds});
+  Playlist({required this.id, required this.name, required this.items});
   final String id, name;
-  final Set<String> episodeIds;
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'episodeIds': episodeIds.toList()};
-  factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(id: _s(j['id']), name: _s(j['name']), episodeIds: _list(j['episodeIds']).map(_s).toSet());
+  final List<PlaylistItem> items;
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'items': items.map((e) => e.toJson()).toList()};
+  factory Playlist.fromJson(Map<String, dynamic> j) {
+    final saved = _list(j['items']);
+    return Playlist(id: _s(j['id']), name: _s(j['name']), items: saved.isNotEmpty ? saved.whereType<Map>().map((e) => PlaylistItem.fromJson(Map<String, dynamic>.from(e))).toList() : _list(j['episodeIds']).map((e) => PlaylistItem(episodeId: _s(e))).toList());
+  }
+}
+
+class PlaylistItem {
+  PlaylistItem({required this.episodeId, this.seconds = 0, this.label = ''});
+  final String episodeId, label;
+  final int seconds;
+  Map<String, dynamic> toJson() => {'episodeId': episodeId, 'seconds': seconds, 'label': label};
+  factory PlaylistItem.fromJson(Map<String, dynamic> j) => PlaylistItem(episodeId: _s(j['episodeId']), seconds: _i(j['seconds']), label: _s(j['label']));
+}
+
+class PodcastInfo {
+  PodcastInfo({required this.name, required this.description, required this.genre, required this.language, required this.country, required this.website, required this.collaborators});
+  final String name, description, genre, language, country, website;
+  final List<Collaborator> collaborators;
+  factory PodcastInfo.fromJson(Map<String, dynamic> j) {
+    final p = j['podcast'] is Map ? Map<String, dynamic>.from(j['podcast']) : j;
+    return PodcastInfo(name: _s(p['nombre'] ?? p['name']), description: _s(p['descripcion'] ?? p['description']), genre: _s(p['genero'] ?? p['genre']), language: _s(p['idioma'] ?? p['language']), country: _s(p['pais'] ?? p['country']), website: _s(p['sitio_web'] ?? p['website']), collaborators: _list(p['colaboradores'] ?? p['collaborators']).whereType<Map>().map((e) => Collaborator.fromJson(Map<String, dynamic>.from(e))).toList());
+  }
+}
+
+class Collaborator {
+  Collaborator({required this.name, required this.role, required this.info});
+  final String name, role, info;
+  factory Collaborator.fromJson(Map<String, dynamic> j) => Collaborator(name: _s(j['nombre'] ?? j['name']), role: _s(j['rol'] ?? j['role']), info: _s(j['informacion'] ?? j['info']));
 }
 
 String encodeList(Iterable<Map<String, dynamic>> values) => jsonEncode(values.toList());
