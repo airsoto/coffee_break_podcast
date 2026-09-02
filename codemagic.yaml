@@ -51,7 +51,8 @@ workflows:
       - name: Instalar dependencias Flutter
         script: flutter pub get
       - name: Aplicar firma de Coffee Break
-        script: xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
+        script: |
+          xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
       - name: Generar IPA firmado
         script: flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
     artifacts:
